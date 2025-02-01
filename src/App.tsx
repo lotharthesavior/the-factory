@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import './App.css'
-import { Asset, AssetTypes, AssetStore } from './components/Store'
+import { Asset, AssetStore } from './components/Store'
 import { Assets } from './components/Assets'
 
 function App() {
