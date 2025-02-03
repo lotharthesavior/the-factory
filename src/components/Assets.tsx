@@ -1,21 +1,19 @@
-import { Asset, AssetTypes } from "./Store"
-
+export type AssetState = {
+    name: string,
+    count: number,
+}
 
 type AssetProps = {
-    assets: Asset[];
+    assets: AssetState[];
 }
 
 export function Assets({ assets }: AssetProps) {
-    const presentAssets = () => Object.keys(AssetTypes).map((assetName: string) => {
-        const assetCount: number = assets.filter((asset: Asset) => asset.name === AssetTypes[assetName].name).length
-        if (assetCount === 0) return null
-        return <li key={AssetTypes[assetName].name}>{AssetTypes[assetName].name}: {assetCount}</li>
-    })
-
     return (
         <>
             <h2>Assets:</h2>
-            <ul>{presentAssets()}</ul>
+            <ul>{ assets.map((asset: AssetState, index: number) => {
+                return <li key={index}>{asset.name}: {asset.count}</li>
+            }) }</ul>
         </>
     )
 }
