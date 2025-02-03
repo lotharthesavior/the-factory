@@ -14,7 +14,7 @@ export function AssetStore({ addAsset, balance, assets }: StoreProps) {
             <ul className="flex gap-4 m-auto">
                 {Object.keys(AssetTypes).map((assetName: string, index: number) => {
                     const assetPrice: number = getAssetPrice(AssetTypes[assetName], assets.find((a) => a.name === assetName)?.count ?? 0 );
-                    const buttonClass: string = "border border-gray-400 shadow rounded p-4 shadow flex flex-col items-center justify-center gap-2 " + ( balance < assetPrice ? " cursor-not-allowed bg-red-900" : " cursor-pointer" );
+                    const buttonClass: string = " min-w-30 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-400 shadow rounded p-4 shadow flex flex-col items-center justify-center gap-2 " + ( balance < assetPrice ? " cursor-not-allowed bg-red-200 hover:bg-red-300 dark:bg-red-800 dark:hover:bg-red-900" : " cursor-pointer" );
 
                     return (
                         <li key={index}>
