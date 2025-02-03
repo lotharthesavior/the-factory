@@ -5,43 +5,46 @@ import { Assets, AssetState } from './components/Assets'
 import { Store, Table } from 'tinybase'
 import { Controllers } from './components/Controllers'
 import { Asset, getAssetPrice } from './components/store-utils'
-
-type WalletState = {
-  income: number,
-  lastUpdate: number, // timestamp of the last update
-  count: number, // count of assets at the time of the last update
-  lastUpdateCount: number, // count of assets at the time of the last update
-}
+import { WalletState } from './components/wallet-utils'
 
 type AppProps = {
   store: Store,
+  appStore: Store,
 }
 
-function App({store}: AppProps) {
+function App({store, appStore}: AppProps) {
   const [wallet, setWallet] = useState<WalletState>({
     income: 0,
     lastUpdate: 0,
     count: 0,
     lastUpdateCount: 0,
   })
-  const intervalId = useRef<NodeJS.Timeout | null>(null)
+  const incomeIntervalId = useRef<NodeJS.Timeout | null>(null)
+  const syncIntervalId = useRef<NodeJS.Timeout | null>(null)
   const [assets, setAssets] = useState<AssetState[]>([])
 
-  // @ts-expect-error EffectCallback type erroring here.
   useEffect(() => {
     initSync()
-    intervalId.current = startIncomeTimer()
-    return () => intervalId.current ? clearInterval(intervalId.current) : null
+    incomeIntervalId.current = startIncomeTimer()
+    syncIntervalId.current = startSyncTimer()
+    return () => {
+      if (incomeIntervalId.current) clearInterval(incomeIntervalId.current)
+      if (syncIntervalId.current) clearInterval(syncIntervalId.current)
+    }
   }, [])
 
-  const initSync = () => {
-    synchronizeWithStore('wallet')
-    synchronizeWithStore('assets')
+  const initSync = (): void => {
+    syncNow()
     // @ts-expect-error (The store is not used)
     store.addTableListener('assets', (store, tableId) => synchronizeWithStore(tableId))
     // @ts-expect-error (The store is not used)
     store.addTableListener('wallet', (store, tableId) => synchronizeWithStore(tableId))
   }
+
+  const syncNow = (): void => {
+    synchronizeWithStore('wallet')
+    synchronizeWithStore('assets')
+  } 
 
   const startIncomeTimer = (): NodeJS.Timeout => {
     if (wallet.lastUpdate === 0) wallet.lastUpdate = Date.now()
@@ -51,6 +54,15 @@ function App({store}: AppProps) {
     return setInterval(() => {
       calculateWalletCount(wallet)
     }, 1000)
+  }
+
+  const startSyncTimer = (): NodeJS.Timeout => {
+    return setInterval(() => {
+      if (!appStore.getRow('app', 'ws').syncPending) return
+      store.setRow('wallet', 'count', wallet)
+      store.setTable('assets', assets as unknown as Table)
+      appStore.setRow('app', 'ws', {syncPending: false})
+    })
   }
 
   const calculateWalletCount = (wallet: WalletState) => {

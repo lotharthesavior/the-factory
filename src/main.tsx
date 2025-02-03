@@ -2,7 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { createMergeableStore } from 'tinybase'
+import { createMergeableStore, createStore } from 'tinybase'
 import { createWsSynchronizer } from 'tinybase/synchronizers/synchronizer-ws-client'
 import {createIndexedDbPersister} from 'tinybase/persisters/persister-indexed-db'
 import ReconnectingWebSocket from 'reconnecting-websocket'
@@ -22,12 +22,23 @@ if ('serviceWorker' in navigator) {
   })
 }
 
+const appStore = createStore().setTables({app: {ws: {
+  connected: false,
+  syncPending: false,
+}}});
+
 // Store Synch
 const store = createMergeableStore().setTables({assets: {}, wallet: {}});
+const ws = new ReconnectingWebSocket(WS_ADDRESS);
 (async () => {
-  const synchronizer2 = await createWsSynchronizer(store, new ReconnectingWebSocket(WS_ADDRESS));
+  // const synchronizer2 = await createWsSynchronizer(store, new ReconnectingWebSocket(WS_ADDRESS));
+  const synchronizer2 = await createWsSynchronizer(store, ws);
   await synchronizer2.startSync();
 })();
+ws.addEventListener('open', () => {
+  if (!appStore.getRow('app', 'ws').connected) appStore.setRow('app', 'ws', {connected: true});
+  else appStore.setRow('app', 'ws', {syncPending: true});
+});
 // Store Offline Persister
 (async () => {
   const persister = createIndexedDbPersister(store, 'theFactoryStore');
@@ -37,6 +48,6 @@ const store = createMergeableStore().setTables({assets: {}, wallet: {}});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App store={store}/>
+    <App store={store} appStore={appStore}/>
   </StrictMode>,
 )
