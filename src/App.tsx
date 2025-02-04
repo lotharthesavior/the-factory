@@ -4,7 +4,7 @@ import { AssetStore } from './components/Store'
 import { Assets, AssetState } from './components/Assets'
 import { Store, Table } from 'tinybase'
 import { Controllers } from './components/Controllers'
-import { Asset, getAssetPrice } from './components/store-utils'
+import {Asset, AssetTypes, getAssetPrice} from './components/store-utils'
 import { WalletState } from './components/wallet-utils'
 
 type AppProps = {
@@ -13,15 +13,18 @@ type AppProps = {
 }
 
 function App({store, appStore}: AppProps) {
-  const [wallet, setWallet] = useState<WalletState>({
+  const defaultWallet: WalletState = {
     income: 0,
     lastUpdate: 0,
     count: 0,
     lastUpdateCount: 0,
-  })
+  };
+  const [wallet, setWallet] = useState<WalletState>(defaultWallet)
+  const walletRef = useRef<WalletState>(defaultWallet)
   const incomeIntervalId = useRef<NodeJS.Timeout | null>(null)
   const syncIntervalId = useRef<NodeJS.Timeout | null>(null)
   const [assets, setAssets] = useState<AssetState[]>([])
+  const assetsRef = useRef<AssetState[]>([])
 
   useEffect(() => {
     initSync()
@@ -52,8 +55,20 @@ function App({store, appStore}: AppProps) {
 
     // TODO: move this to WalletService
     return setInterval(() => {
-      calculateWalletCount(wallet)
+      calculateWalletCount(walletRef.current)
+
+      const assetsIncome: number = getIncomeFromAssets()
+      if (wallet.income !== assetsIncome) {
+        wallet.income = assetsIncome
+        setWallet({...wallet})
+        store.setRow('wallet', 'count', wallet)
+        walletRef.current = wallet
+      }
     }, 1000)
+  }
+
+  const getIncomeFromAssets = (): number => {
+    return assetsRef.current.reduce((acc: number, asset: AssetState): number => acc + asset.count * AssetTypes[asset.name].increment, 0)
   }
 
   const startSyncTimer = (): NodeJS.Timeout => {
@@ -62,13 +77,14 @@ function App({store, appStore}: AppProps) {
       store.setRow('wallet', 'count', wallet)
       store.setTable('assets', assets as unknown as Table)
       appStore.setRow('app', 'ws', {syncPending: false})
-    })
+    }, 1000)
   }
 
   const calculateWalletCount = (wallet: WalletState) => {
     const timeSinceLastUpdate = Math.floor(Date.now() / 1000) - Math.floor(wallet.lastUpdate / 1000)
     wallet.count = timeSinceLastUpdate * wallet.income + wallet.lastUpdateCount
     setWallet({...wallet})
+    walletRef.current = wallet
   }
 
   // TODO: figure a store sync service
@@ -81,6 +97,7 @@ function App({store, appStore}: AppProps) {
   const synchronizeAssets = (data: Table) => {
     const initialAssets: AssetState[] = Object.keys(data).map((key) => data[key] as AssetState)
     setAssets(initialAssets)
+    assetsRef.current = initialAssets
   }
 
   const synchronizeWallet = (data: Table) => {
@@ -92,6 +109,7 @@ function App({store, appStore}: AppProps) {
     wallet.lastUpdate = initialWallet.lastUpdate
     wallet.lastUpdateCount = initialWallet.lastUpdateCount
     setWallet({...wallet})
+    walletRef.current = wallet
   }
 
   // Add count to state.
@@ -101,6 +119,7 @@ function App({store, appStore}: AppProps) {
     wallet.lastUpdate = Date.now()
     setWallet({...wallet})
     store.setRow('wallet', 'count', wallet)
+    walletRef.current = wallet
   }
 
   // Add asset to state.
@@ -121,6 +140,7 @@ function App({store, appStore}: AppProps) {
     existingAsset.count += 1
     setAssets([...assets])
     store.setRow('assets', existingAsset.name, existingAsset)
+    assetsRef.current = assets
 
     wallet.income += asset.increment
     wallet.count = wallet.count - assetPrice
@@ -128,6 +148,7 @@ function App({store, appStore}: AppProps) {
     wallet.lastUpdate = Date.now()
     setWallet({...wallet})
     store.setRow('wallet', 'count', wallet)
+    walletRef.current = wallet
   }
 
   return (

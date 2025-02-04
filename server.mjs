@@ -16,6 +16,7 @@ import ReconnectingWebSocket from 'reconnecting-websocket'
 
 const app = express()
 const PORT = process.env.PORT || 3000
+const VITE_WS_ADDRESS = process.env.VITE_WS_ADDRESS || `ws://localhost:${PORT}`
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 app
@@ -31,7 +32,7 @@ const httpServer = http.createServer(app)
 const wsServer = new WebSocketServer({ server: httpServer })
 createWsServer(wsServer)
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on http://localhost:${PORT}`)
 })
 
@@ -43,11 +44,11 @@ httpServer.listen(PORT, () => {
 const store = createMergeableStore().setTables({wallet: {}})
 const synchronizer = await createWsSynchronizer(
   store,
-  new ReconnectingWebSocket(`ws://localhost:${PORT}`),
+  new ReconnectingWebSocket(`${VITE_WS_ADDRESS}`),
 );
 await synchronizer.startSync()
 // persister
-const db = new sqlite3.Database('/var/www/Playground/the-factory/database.sqlite')
+const db = new sqlite3.Database('database.sqlite')
 const persister = createSqlite3Persister(store, db, 'wallet')
 persister.load()
 await persister.startAutoSave()

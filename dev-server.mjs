@@ -10,9 +10,10 @@ import { createSqlite3Persister } from 'tinybase/persisters/persister-sqlite3'
 // ------------------------------------
 
 const PORT = process.env.PORT || 3000
+const VITE_WS_ADDRESS = process.env.VITE_WS_ADDRESS || `ws://localhost:${PORT}`
 const wsServer = new WebSocketServer({ port: PORT })
 createWsServer(wsServer)
-console.log(`WebSocket server started on ws://localhost:${PORT}`)
+console.log(`WebSocket server started on ${VITE_WS_ADDRESS}`)
 
 // ------------------------------------
 // SYNC and persist
@@ -22,11 +23,11 @@ console.log(`WebSocket server started on ws://localhost:${PORT}`)
 const store = createMergeableStore().setTables({wallet: {}})
 const synchronizer = await createWsSynchronizer(
   store,
-  new WebSocket(`ws://localhost:${PORT}`),
+  new WebSocket(`${VITE_WS_ADDRESS}`),
 );
 await synchronizer.startSync()
 // persister
-const db = new sqlite3.Database('/var/www/Playground/the-factory/database.sqlite')
+const db = new sqlite3.Database('database.sqlite')
 const persister = createSqlite3Persister(store, db, 'wallet')
 persister.load()
 await persister.startAutoSave()
